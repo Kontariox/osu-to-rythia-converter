@@ -1,15 +1,36 @@
 import os
+import sys
 import threading
+import json
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog, messagebox
 
 from converter import convert_osz
 
+CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".osu-to-rythia-cfg.json")
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_config(data):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(data, f)
+    except:
+        pass
+
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.config = load_config()
         self.title("osu! to Rythia Converter")
         self.minsize(520, 400)
 
@@ -49,9 +70,13 @@ class App(tk.Tk):
         tab2 = tk.Frame(notebook, padx=12, pady=12)
         notebook.add(tab2, text="osu Songs -> Rhythia")
 
-        self.songs_dir_var = tk.StringVar(value="")
-        self.rhythia_dir_var = tk.StringVar(value="")
+        self.songs_dir_var = tk.StringVar(value=self.config.get("songs_dir", ""))
+        self.rhythia_dir_var = tk.StringVar(value=self.config.get("rhythia_dir", ""))
         self.tab2_status = tk.StringVar(value="Wybierz foldery")
+
+        # When paths change, save them and refresh list
+        self.songs_dir_var.trace_add("write", self.on_paths_changed)
+        self.rhythia_dir_var.trace_add("write", self.on_paths_changed)
 
         tk.Label(tab2, text="Folder Songs:").grid(row=0, column=0, sticky="w")
         tk.Entry(tab2, textvariable=self.songs_dir_var).grid(row=0, column=1, sticky="ew", padx=(8, 8))
@@ -75,6 +100,15 @@ class App(tk.Tk):
         tab2.columnconfigure(1, weight=1)
         tab2.rowconfigure(2, weight=1)
 
+        # Populate list initially if paths exist
+        if self.songs_dir_var.get():
+            self.refresh_songs_list(self.songs_dir_var.get())
+
+    def on_paths_changed(self, *args):
+        self.config["songs_dir"] = self.songs_dir_var.get()
+        self.config["rhythia_dir"] = self.rhythia_dir_var.get()
+        save_config(self.config)
+
     def choose_songs_dir(self):
         path = filedialog.askdirectory(title="Wybierz folder Songs z osu!")
         if path:
@@ -83,12 +117,70 @@ class App(tk.Tk):
 
     def refresh_songs_list(self, path):
         self.songs_listbox.delete(0, tk.END)
-        try:
-            for item in sorted(os.listdir(path)):
-                if os.path.isdir(os.path.join(path, item)):
-                    self.songs_listbox.insert(tk.END, item)
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można odczytać folderu: {e}")
+        self.tab2_status.set("Wczytywanie listy piosenek...")
+
+        def worker():
+            items = []
+            try:
+                if os.path.exists(path):
+                    items = sorted([d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))])
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Błąd", f"Nie można odczytać folderu: {e}"))
+                self.after(0, lambda: self.tab2_status.set("Błąd wczytywania"))
+                return
+
+            imported_legacy_ids = set()
+            rhythia_dir = self.rhythia_dir_var.get()
+            if rhythia_dir:
+                db_path = os.path.join(rhythia_dir, "rhythia.db")
+                if os.path.exists(db_path):
+                    try:
+                        import sqlite3
+                        conn = sqlite3.connect(db_path)
+                        cur = conn.cursor()
+                        cur.execute("SELECT LegacyId FROM Maps")
+                        imported_legacy_ids = {row[0] for row in cur.fetchall()}
+                        conn.close()
+                    except Exception:
+                        pass
+
+            import re
+
+            listbox_items = []
+            for item in items:
+                item_path = os.path.join(path, item)
+                is_imported = False
+
+                if imported_legacy_ids:
+                    try:
+                        for f in os.listdir(item_path):
+                            if f.endswith(".osu"):
+                                with open(os.path.join(item_path, f), "r", encoding="utf-8", errors="ignore") as osu_f:
+                                    content = osu_f.read()
+                                    creator_match = re.search(r'Creator:(.*?)\n', content)
+                                    title_match = re.search(r'Title:(.*?)\n', content)
+                                    if creator_match and title_match:
+                                        c = creator_match.group(1).strip().lower()
+                                        t = title_match.group(1).strip().lower()
+                                        l_id = f"{c} - {t} - rhythia"
+                                        if l_id in imported_legacy_ids:
+                                            is_imported = True
+                                            break
+                    except Exception:
+                        pass
+
+                display_text = f"[✓] {item}" if is_imported else item
+                listbox_items.append(display_text)
+
+            def finalize():
+                self.songs_listbox.delete(0, tk.END)
+                for i in listbox_items:
+                    self.songs_listbox.insert(tk.END, i)
+                self.tab2_status.set("Gotowe do konwersji")
+
+            self.after(0, finalize)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def on_convert2(self):
         from converter import convert_songs_to_json
@@ -96,6 +188,9 @@ class App(tk.Tk):
         if not songs:
             messagebox.showwarning("Uwaga", "Nie wybrano żadnych piosenek z listy.")
             return
+
+        # usuń prefix [✓]
+        songs = [s[4:] if s.startswith("[✓] ") else s for s in songs]
 
         songs_dir = self.songs_dir_var.get()
         rhythia_dir = self.rhythia_dir_var.get()
@@ -117,6 +212,7 @@ class App(tk.Tk):
                 self.after(0, lambda: self.tab2_status.set("Błąd konwersji"))
             else:
                 self.after(0, lambda: self.tab2_status.set("Gotowe"))
+                self.after(0, lambda: self.refresh_songs_list(songs_dir)) # odśwież listę
             finally:
                 self.after(0, lambda: self.convert2_btn.configure(state="normal"))
 
