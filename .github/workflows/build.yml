@@ -25,7 +25,8 @@ jobs:
       run: |
         pyinstaller --onefile --noconsole --name Osu-to-Rhythia main.py
     - name: Compress build folder
-      run: Compress-Archive -Path D:\a\osu-to-rythia\osu-to-rythia\dist -DestinationPath build.zip
+      run: |
+        Compress-Archive -Path dist -DestinationPath build.zip
 
     - name: Upload .zip artifact
       uses: actions/upload-artifact@v4
