@@ -8,7 +8,10 @@ from tkinter import filedialog, messagebox
 
 from converter import convert_osz
 
-CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".osu-to-rythia-cfg.json")
+if sys.platform == "win32":
+    CONFIG_FILE = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "osu-to-rythia-cfg.json")
+else:
+    CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".osu-to-rythia-cfg.json")
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
