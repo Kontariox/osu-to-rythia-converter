@@ -1,1 +1,2 @@
 pysspm-rhythia
+numpy
