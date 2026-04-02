@@ -47,48 +47,33 @@ class App(tk.Tk):
 
     def init_tab2(self, notebook):
         tab2 = tk.Frame(notebook, padx=12, pady=12)
-        notebook.add(tab2, text="osu Songs -> JSON/Audio/Covers")
+        notebook.add(tab2, text="osu Songs -> Rhythia")
 
         self.songs_dir_var = tk.StringVar(value="")
-        self.audio_dir_var = tk.StringVar(value="")
-        self.covers_dir_var = tk.StringVar(value="")
-        self.maps_dir_var = tk.StringVar(value="")
-        self.db_path_var = tk.StringVar(value="")
-        self.tab2_status = tk.StringVar(value="Wybierz foldery i plik bazy danych")
+        self.rhythia_dir_var = tk.StringVar(value="")
+        self.tab2_status = tk.StringVar(value="Wybierz foldery")
 
         tk.Label(tab2, text="Folder Songs:").grid(row=0, column=0, sticky="w")
         tk.Entry(tab2, textvariable=self.songs_dir_var).grid(row=0, column=1, sticky="ew", padx=(8, 8))
         tk.Button(tab2, text="Wybierz…", command=self.choose_songs_dir).grid(row=0, column=2, sticky="ew")
 
-        tk.Label(tab2, text="Folder Audio:").grid(row=1, column=0, sticky="w", pady=(5, 0))
-        tk.Entry(tab2, textvariable=self.audio_dir_var).grid(row=1, column=1, sticky="ew", padx=(8, 8), pady=(5, 0))
-        tk.Button(tab2, text="Wybierz…", command=lambda: self.audio_dir_var.set(filedialog.askdirectory())).grid(row=1, column=2, sticky="ew", pady=(5, 0))
-
-        tk.Label(tab2, text="Folder Covers:").grid(row=2, column=0, sticky="w", pady=(5, 0))
-        tk.Entry(tab2, textvariable=self.covers_dir_var).grid(row=2, column=1, sticky="ew", padx=(8, 8), pady=(5, 0))
-        tk.Button(tab2, text="Wybierz…", command=lambda: self.covers_dir_var.set(filedialog.askdirectory())).grid(row=2, column=2, sticky="ew", pady=(5, 0))
-
-        tk.Label(tab2, text="Folder Maps:").grid(row=3, column=0, sticky="w", pady=(5, 0))
-        tk.Entry(tab2, textvariable=self.maps_dir_var).grid(row=3, column=1, sticky="ew", padx=(8, 8), pady=(5, 0))
-        tk.Button(tab2, text="Wybierz…", command=lambda: self.maps_dir_var.set(filedialog.askdirectory())).grid(row=3, column=2, sticky="ew", pady=(5, 0))
-
-        tk.Label(tab2, text="Baza rhythia.db:").grid(row=4, column=0, sticky="w", pady=(5, 0))
-        tk.Entry(tab2, textvariable=self.db_path_var).grid(row=4, column=1, sticky="ew", padx=(8, 8), pady=(5, 0))
-        tk.Button(tab2, text="Wybierz…", command=self.choose_db).grid(row=4, column=2, sticky="ew", pady=(5, 0))
+        tk.Label(tab2, text="Folder Rhythia:").grid(row=1, column=0, sticky="w", pady=(5, 0))
+        tk.Entry(tab2, textvariable=self.rhythia_dir_var).grid(row=1, column=1, sticky="ew", padx=(8, 8), pady=(5, 0))
+        tk.Button(tab2, text="Wybierz…", command=lambda: self.rhythia_dir_var.set(filedialog.askdirectory())).grid(row=1, column=2, sticky="ew", pady=(5, 0))
 
         self.songs_listbox = tk.Listbox(tab2, selectmode=tk.MULTIPLE, height=10)
-        self.songs_listbox.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
+        self.songs_listbox.grid(row=2, column=0, columnspan=3, sticky="nsew", pady=(10, 0))
 
         # Akcje
         self.convert2_btn = tk.Button(tab2, text="Konwertuj wybrane", command=self.on_convert2)
-        self.convert2_btn.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        self.convert2_btn.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(10, 0))
 
         tk.Label(tab2, textvariable=self.tab2_status, anchor="w", fg="#444").grid(
-            row=7, column=0, columnspan=3, sticky="ew", pady=(5, 0)
+            row=4, column=0, columnspan=3, sticky="ew", pady=(5, 0)
         )
 
         tab2.columnconfigure(1, weight=1)
-        tab2.rowconfigure(5, weight=1)
+        tab2.rowconfigure(2, weight=1)
 
     def choose_songs_dir(self):
         path = filedialog.askdirectory(title="Wybierz folder Songs z osu!")
@@ -105,14 +90,6 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie można odczytać folderu: {e}")
 
-    def choose_db(self):
-        path = filedialog.askopenfilename(
-            title="Wybierz plik z bazą (rythia.db)",
-            filetypes=[("SQLite DB", "*.db"), ("Wszystkie pliki", "*")]
-        )
-        if path:
-            self.db_path_var.set(path)
-
     def on_convert2(self):
         from converter import convert_songs_to_json
         songs = [self.songs_listbox.get(i) for i in self.songs_listbox.curselection()]
@@ -121,13 +98,10 @@ class App(tk.Tk):
             return
 
         songs_dir = self.songs_dir_var.get()
-        audio_dir = self.audio_dir_var.get()
-        covers_dir = self.covers_dir_var.get()
-        maps_dir = self.maps_dir_var.get()
-        db_path = self.db_path_var.get()
+        rhythia_dir = self.rhythia_dir_var.get()
 
-        if not all((songs_dir, audio_dir, covers_dir, maps_dir)):
-            messagebox.showerror("Błąd", "Wybierz wszystkie 4 foldery.")
+        if not all((songs_dir, rhythia_dir)):
+            messagebox.showerror("Błąd", "Wybierz oba foldery.")
             return
 
         self.convert2_btn.configure(state="disabled")
@@ -137,7 +111,7 @@ class App(tk.Tk):
             try:
                 for song in songs:
                     song_path = os.path.join(songs_dir, song)
-                    convert_songs_to_json(song_path, audio_dir, covers_dir, maps_dir, db_path)
+                    convert_songs_to_json(song_path, rhythia_dir)
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Błąd konwersji", str(e)))
                 self.after(0, lambda: self.tab2_status.set("Błąd konwersji"))

@@ -192,7 +192,12 @@ def hash_file(filepath):
     return sha256.hexdigest()
 
 
-def convert_songs_to_json(song_path, audio_dir, covers_dir, maps_dir, db_path=None):
+def convert_songs_to_json(song_path, rhythia_dir):
+    audio_dir = os.path.join(rhythia_dir, "cache", "audio")
+    covers_dir = os.path.join(rhythia_dir, "cache", "covers")
+    maps_dir = os.path.join(rhythia_dir, "cache", "maps")
+    db_path = os.path.join(rhythia_dir, "rhythia.db")
+
     os.makedirs(audio_dir, exist_ok=True)
     os.makedirs(covers_dir, exist_ok=True)
     os.makedirs(maps_dir, exist_ok=True)
@@ -206,7 +211,7 @@ def convert_songs_to_json(song_path, audio_dir, covers_dir, maps_dir, db_path=No
     cover_hash_map = {}
 
     conn = None
-    if db_path and os.path.exists(db_path):
+    if os.path.exists(db_path):
         conn = sqlite3.connect(db_path)
 
     for osu_file in osu_files:
